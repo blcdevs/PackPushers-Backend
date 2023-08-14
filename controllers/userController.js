@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const uuid = require('uuid');
 const transporter = require('../config/mailer');
 require('dotenv').config();
-
+ 
 const { BASE_URL, EMAIL_USERNAME } = process.env;
 
 const userController = {};
