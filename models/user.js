@@ -10,6 +10,7 @@ const userSchema = new mongoose.Schema({
   resetToken: String,
   resetTokenExpiry: Date,
   phoneNumber: String,
+  bio: String,
   address: {
     street: String,
     city: String,
