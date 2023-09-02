@@ -8,9 +8,6 @@
     "dev": "nodemon server.js",
     "production": "NODE_ENV=production node server.js"
   },
-  "engines": {
-    "node": ">=14.20.1"
-  },
   "author": "",
   "license": "ISC",
   "dependencies": {

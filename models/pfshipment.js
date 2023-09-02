@@ -17,9 +17,11 @@ const userSchema = new mongoose.Schema({
   state: String,
   street: String,
   trackingId: String,
+  status: {
+    type: String,
+    default: 'pending'
+  },
 });
-
-
 
 const Pfshipment = mongoose.model('pfshipment', userSchema);
 

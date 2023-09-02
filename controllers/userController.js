@@ -7,13 +7,48 @@ const bcrypt = require('bcrypt');
 const uuid = require('uuid');
 const transporter = require('../config/mailer');
 require('dotenv').config();
- 
-const { BASE_URL, EMAIL_USERNAME , JWT_SECRET_KEY} = process.env;
+const Stripe = require('stripe')
+const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
+// const cors = require('cors');
+// const { STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY } = process.env;
+// const stripe = require('stripe')(STRIPE_SECRET_KEY);
+const { BASE_URL, EMAIL_USERNAME, JWT_SECRET_KEY } = process.env;
+
 
 const userController = {};
 
+// userController.cardDetails = async (req, res) => {
+//   try {
+//     const { nameOnCard, cardNumber, cvv, expiryMonth, expiryYear, userID } = req.body;
+//     const checkUser = await CreditCard.findOne({ userID })
+
+//     if (checkUser) {
+//       await CreditCard.findOneAndRemove({ userID });
+//     }
+
+//     const cardData = new CreditCard({
+//       nameOnCard,
+//       cardNumber,
+//       cvv,
+//       expiryMonth,
+//       expiryYear,
+//       userID
+//     });
+
+//     if (cardData) {
+//       await cardData.save();
+//       res.json({ message: 'Cards Detail Store successfully' });
+//     }
+//     else {
+//       res.json({ message: 'Cards Detail not receive' });
+//     }
+//   } catch (err) {
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// };
+
 userController.signup = async (req, res) => {
-  
+
   try {
     const { fullName, email, password, role } = req.body;
     const existingUser = await User.findOne({ email });
@@ -50,34 +85,37 @@ userController.signup = async (req, res) => {
 };
 
 userController.login = async (req, res) => {
-    try {
-      const { email, password } = req.body;
-      const user = await User.findOne({ email });
-  
-      if (!user) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
-  
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-  
-      if (!isPasswordValid) {
-        return res.status(401).json({ error: 'Invalid email or password' });
-      }
+  try {
+    const { email, password } = req.body;
+    console.log("Req: ", req.body)
+    const user = await User.findOne({ email });
 
-      if (!user.isEmailVerified) {
-        return res.status(401).json({ error: 'Your Account is not verified!' });
-      }
-  
-      const token = jwt.sign({ userId: user._id, role: user.role, email: user.email }, JWT_SECRET_KEY, {
-        expiresIn: '1d',
-      });
-  
-      res.json({ token });
-    } catch (err) {
-      res.status(500).json({ error: 'Server error' });
+    if (!user) {
+      return res.status(401).json({ error: 'Invalid email or password' });
     }
-  };
-  
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ error: 'Invalid email or password' });
+    }
+
+    if (!user.isEmailVerified) {
+      return res.status(401).json({ error: 'Your Account is not verified!' });
+    }
+
+    const token = jwt.sign({ userId: user._id, role: user.role, email: user.email }, JWT_SECRET_KEY, {
+      expiresIn: '1d',
+    });
+
+    const userID = user._id;
+
+    res.json({ token, userID });
+  } catch (err) {
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 
 userController.verifyEmail = async (req, res) => {
   try {
@@ -193,7 +231,7 @@ userController.list = async (req, res) => {
 userController.verify = async (req, res) => {
   try {
     const { token } = req.body;
-    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);;
+    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
 
     if (!decodedToken) {
       res.json({ message: 'Error', user: false });
@@ -202,7 +240,7 @@ userController.verify = async (req, res) => {
     res.json({ message: 'Verified', user: true });
   } catch (err) {
     res.json({ message: 'Error', user: false });
-  } 
+  }
 };
 
 
@@ -215,26 +253,26 @@ userController.getuser = async (req, res) => {
     //   res.json({ message: 'Error', user: {} });
     // }
 
-    
-      const email = decodedToken.email;
-      const userdata = await User.findOne({email });
-     
+
+    const email = decodedToken.email;
+    const userdata = await User.findOne({ email });
+
     const user = {
-       fullName : userdata.fullName,
-       email : userdata.email,
-       role : userdata.role,
-       isEmailVerified : userdata.isEmailVerified,
-       // verificationToken : userdata.verificationToken
-       isProfileSet: false
+      fullName: userdata.fullName,
+      email: userdata.email,
+      role: userdata.role,
+      isEmailVerified: userdata.isEmailVerified,
+      // verificationToken : userdata.verificationToken
+      isProfileSet: false
     };
 
     if (user.role == 'agent') {
-        const pfset = await Pfsetting.findOne({ _pf_id: userdata._id });
-        if (pfset) {
-          user.isProfileSet = true;
-        }
+      const pfset = await Pfsetting.findOne({ _pf_id: userdata._id });
+      if (pfset) {
+        user.isProfileSet = true;
+      }
     }
-  
+
 
     res.json({ message: 'Verified', user });
   } catch (err) {
@@ -250,16 +288,16 @@ userController.getuserdata = async (req, res) => {
     const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
 
     const email = decodedToken.email;
-    const userdata = await User.findOne({email });
-     
+    const userdata = await User.findOne({ email });
+
     const user = {
-       fullName : userdata.fullName,
-       email : userdata.email,
-       role : userdata.role,
-       isEmailVerified : userdata.isEmailVerified,
-       // verificationToken : userdata.verificationToken
-       bio: userdata.bio,
-       isProfileSet: false
+      fullName: userdata.fullName,
+      email: userdata.email,
+      role: userdata.role,
+      isEmailVerified: userdata.isEmailVerified,
+      // verificationToken : userdata.verificationToken
+      bio: userdata.bio,
+      isProfileSet: false
     };
 
     res.json({ message: 'Success', user });
@@ -271,24 +309,24 @@ userController.getuserdata = async (req, res) => {
 
 userController.setuserdata = async (req, res) => {
   // try {
-    const { token, fullName, password, bio } = req.body;
-    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+  const { token, fullName, password, bio } = req.body;
+  const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
 
-    const email = decodedToken.email;
-    const userdata = await User.findOne({email });
-     
-      userdata.fullName = fullName;
-      if (password) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        userdata.password = hashedPassword;
-      }
-      
-      userdata.bio = bio;
+  const email = decodedToken.email;
+  const userdata = await User.findOne({ email });
 
-      await userdata.save();
+  userdata.fullName = fullName;
+  if (password) {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    userdata.password = hashedPassword;
+  }
+
+  userdata.bio = bio;
+
+  await userdata.save();
 
 
-    res.json({ message: 'Success' });
+  res.json({ message: 'Success' });
   // } catch (err) {
   //   res.json({ message: 'Error', user: {} });
   // } 
@@ -296,122 +334,299 @@ userController.setuserdata = async (req, res) => {
 
 
 userController.getagents = async (req, res) => {
-    
-    const userdata = await User.find();
 
-    var agents = [];
+  const userdata = await User.find();
 
-    for (var i = 0; i < userdata.length; i++) {
-      if(userdata[i].role == 'agent' && userdata[i].isEmailVerified){
-        agents.push({id:userdata[i]._id,name: userdata[i].fullName});
-      }
+  var agents = [];
+
+  for (var i = 0; i < userdata.length; i++) {
+    if (userdata[i].role == 'agent' && userdata[i].isEmailVerified) {
+      agents.push({ id: userdata[i]._id, name: userdata[i].fullName });
     }
+  }
 
 
-    res.json({ message: 'Success', agents: agents});
-  
+  res.json({ message: 'Success', agents: agents });
+
 };
 
+// // Stripe APi //
+
+// userController.createPayment = async (req, res) => {
+//   try {
+//     const { amount } = req.body; // Adjust this based on your needs
+
+//     const paymentIntent = await stripe.paymentIntents.create({
+//       amount: amount * 100, // Amount in cents
+//       currency: 'usd', // Change to your desired currency
+//       // Add more details as needed
+//     });
+
+//     res.json({ sessionId: paymentIntent.client_secret });
+//   } catch (error) {
+//     console.error(error);
+//     res.status(500).json({ error: 'An error occurred while creating the payment intent.' });
+//   }
+// });
+
+// userController.payment = async (req, res) => {
+//   let { amount, id } = req.body
+//   try {
+//     const payment = await stripe.paymentIntents.create({
+//       amount,
+//       currency: "USD",
+//       description: "Spatula company",
+//       payment_method: id,
+//       confirm: true
+//     })
+//     console.log("Payment", payment)
+//     res.json({
+//       message: "Payment successful",
+//       success: true
+//     })
+//   } catch (error) {
+//     console.log("Error", error)
+//     res.json({
+//       message: "Payment failed",
+//       success: false
+//     })
+//   }
+// }
+
+userController.findRole = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+    const email = decodedToken.email;
+    const userdata = await User.findOne({ email });
+
+    res.json({ message: 'role sending', role: userdata.role });
+  } catch (err) {
+    console.log("Enter in catch block");
+    res.json({ message: 'Error', user: {} });
+  }
+};
+
+userController.getcustomershipmentdata = async (req, res) => {
+  try {
+    const { token, id } = req.body;
+    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+
+    const customerShipmentData = await Pfshipment.findOne({ _id: id });
+    console.log("customerShipmentData: " + customerShipmentData);
+
+    res.json({ message: 'Data Sending', customer: customerShipmentData });
+  } catch (err) {
+    console.log("Enter in catch block in getcustomershipmentdata");
+    res.json({ message: 'Error', customer: {} });
+  }
+};
+
+userController.createCheckoutSession = async (req, res) => {
+  let numberOfPakages = req.body.packageCount;
+  let price = req.body.price;
+  let amount = numberOfPakages * price;
+  // console.log("numberOfPakages: ", numberOfPakages);
+  // console.log("price: ", price);
+  console.log("Amount: ", amount);
+  const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Shipment Payment',
+          },
+          unit_amount: amount * 100,
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: '/users/customer/shipment',
+    cancel_url: '/users/customer/create-shipment',
+  });
+  console.log("Session ", session.url);
+  console.log("End of Api");
+  res.json({ sessionUrl: session.url }); // Return session URL
+};
 
 userController.createshipment = async (req, res) => {
 
-    const { token, charges, city, country, description, email, packageCount, packageType, packageWeight, phone, postalCode, reciever, shipmentMode, state, street, trackingId } = req.body;
-    
-    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+  const { token, charges, city, country, description, email, packageCount, packageType, packageWeight, phone, postalCode, reciever, shipmentMode, state, street, trackingId } = req.body;
 
-    const emaill = decodedToken.email;
-    const userdata = await User.findOne({email: emaill });
-    
-    
-    const pfshipment = new Pfshipment({
-      userid: userdata._id,
-      charges,
-      city,
-      country,
-      description,
-      email,
-      packageCount,
-      packageType,
-      packageWeight,
-      phone,
-      postalCode,
-      reciever,
-      shipmentMode,
-      state,
-      street,
-      trackingId
-    });
-    await pfshipment.save();
-    res.json({ message: 'Success', pfshipment});
-  
+  const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+
+  const emaill = decodedToken.email;
+  const userdata = await User.findOne({ email: emaill });
+  const name = userdata.fullName;
+  // const userCreditCard = await CreditCard.findOne({ userID: userdata._id });
+
+  // // STRIPE PAYMENT METHOD INTEGRATION - START
+  // try {
+
+  //   // 1- Create Customer
+  //   const customer = await stripe.customers.create({
+  //     name: name,
+  //     email: email,
+  //   });
+
+  //   // 2- Add Customer Card
+  //   const customer_id = customer.id;
+  //   const card_Name = 'Muhammad Adeel';
+  //   const card_ExpYear = parseInt(userCreditCard.expiryYear);
+  //   const card_ExpMonth = parseInt(userCreditCard.expiryMonth);
+  //   const card_Number = userCreditCard.cardNumber;
+  //   const card_CVC = userCreditCard.cvv;
+
+  //   const card_token = await stripe.tokens.create({
+  //     card:{
+  //         number: userCreditCard.cardNumber,
+  //         exp_month: parseInt(userCreditCard.expiryMonth),
+  //         exp_year: parseInt(userCreditCard.expiryYear),
+  //         cvc: userCreditCard.cvv
+  //     }
+  //   });
+
+  //   const card = await stripe.customers.createSource(customer_id, {
+  //     source: `${card_token.id}`
+  //   });
+
+  //   // 3- Create Charge on Customer Card
+  //   const createCharge = await stripe.charges.create({
+  //     receipt_email: 'adeel98amir@gmail.com',
+  //     amount: parseInt(15)*100,
+  //     currency:'USD',
+  //     card: card.id,
+  //     customer: customer_id
+  // });
+
+  // } catch (error) {
+  //   console.log("Error in Payment Api" , error);
+  //   return res.json({ message: 'Error', data: {} });
+  // }
+  // // STRIPE PAYMENT METHOD INTEGRATION - END
+
+  const pfshipment = new Pfshipment({
+    userid: userdata._id,
+    charges,
+    city,
+    country,
+    description,
+    email,
+    packageCount,
+    packageType,
+    packageWeight,
+    phone,
+    postalCode,
+    reciever,
+    shipmentMode,
+    state,
+    street,
+    trackingId
+  });
+
+  await pfshipment.save();
+  res.json({ message: 'Success', pfshipment });
+
+};
+
+userController.updateCustomerShipment = async (req, res) => {
+  try {
+    const { token, city, country, description, email, packageType, phone, postalCode, reciever, state, street, id } = req.body;
+    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+    const updateShipment = {
+      city: city,
+      country: country,
+      description: description,
+      email: email,
+      packageType: packageType,
+      phone: phone,
+      postalCode: postalCode,
+      reciever: reciever,
+      state: state,
+      street: street
+    };
+
+    const customerShipmentData = await Pfshipment.findOne({ _id: id });
+
+    if (customerShipmentData) {
+      await Pfshipment.findOneAndUpdate({ _id: id }, { $set: updateShipment });
+      res.status(200).json("updated");
+    } else {
+      res.status(200).json("not found");
+    }
+  } catch (error) {
+    res.status(500).json("internal server error");
+  }
 };
 
 
 userController.myshipments = async (req, res) => {
-  const { token  } = req.body;
-    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
-    
-      const userId = decodedToken.userId;
-      var data = await Pfshipment.find({ userid: userId });
+  const { token } = req.body;
+  const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
 
-      let resdata=data;
+  const userId = decodedToken.userId;
+  var data = await Pfshipment.find({ userid: userId });
 
-      for (var i = 0; i < resdata.length; i++) {
-        let tempdata = await Pfrate.findById(resdata[i].packageWeight);
-        if (tempdata) {
-          resdata[i].packageWeight = tempdata.weight + ' Kg';
-        }
-        tempdata=null;
-        tempdata = await User.findById(resdata[i].shipmentMode);
-        if (tempdata) {
-          resdata[i].shipmentMode = tempdata.fullName;
-        }
-      }
+  let resdata = data;
 
-      
-      
-    res.json({ message: 'Success', data: resdata }); 
+  for (var i = 0; i < resdata.length; i++) {
+    let tempdata = await Pfrate.findById(resdata[i].packageWeight);
+    if (tempdata) {
+      resdata[i].packageWeight = tempdata.weight + ' Kg';
+    }
+    tempdata = null;
+    tempdata = await User.findById(resdata[i].shipmentMode);
+    if (tempdata) {
+      resdata[i].shipmentMode = tempdata.fullName;
+    }
+  }
+
+
+
+  res.json({ message: 'Success', data: resdata });
 };
 
 
 
 userController.deletshipment = async (req, res) => {
-  const { _id  } = req.body;
-  
-  var pfset = await Pfshipment.deleteOne({_id:_id});
-    
-      
-      
-    res.json({ message: 'Success', pfset }); 
+  const { _id } = req.body;
+
+  var pfset = await Pfshipment.deleteOne({ _id: _id });
+
+
+
+  res.json({ message: 'Success', pfset });
 };
 
 
 userController.dashboard = async (req, res) => {
   try {
 
-  const { token  } = req.body;
+    const { token } = req.body;
     const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
-    
-      const userId = decodedToken.userId;
-      var data = await Pfshipment.find({ userid: userId });
 
-      let resdata={ts:0,tsc:0,rs:[]};
+    const userId = decodedToken.userId;
+    var data = await Pfshipment.find({ userid: userId });
 
-      for (var i = 0; i < data.length; i++) {
-        resdata.ts = resdata.ts+1;
-        resdata.tsc = resdata.tsc+parseFloat(data[i].charges);
-        if (resdata.rs.length < 6) {
-          resdata.rs.push(data[i]);
-        }
+    let resdata = { ts: 0, tsc: 0, rs: [] };
+
+    for (var i = 0; i < data.length; i++) {
+      resdata.ts = resdata.ts + 1;
+      resdata.tsc = resdata.tsc + parseFloat(data[i].charges);
+      if (resdata.rs.length < 6) {
+        resdata.rs.push(data[i]);
       }
+    }
 
-      
-      
+
+
     res.json({ message: 'Success', data: resdata });
 
-} catch (err) {
+  } catch (err) {
     res.json({ message: 'Error', data: {} });
-  } 
+  }
 };
 
 

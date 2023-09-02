@@ -1,10 +1,9 @@
 const express = require('express');
 const userController = require('../controllers/userController');
 const authMiddleware = require('../config/auth'); // Add this line to import authMiddleware
-
+// const cors = require('cors');
 
 const router = express.Router();
-
 
 router.get('/', userController.list);
 router.post('/verify', userController.verify);
@@ -15,15 +14,15 @@ router.post('/forgot-password', userController.forgotPassword);
 router.post('/reset-password', userController.resetPassword);
 router.put('/update-profile', authMiddleware, userController.updateProfile);
 router.post('/login', userController.login); // Add the login route
-
-
+// router.post('/cardDetails', userController.cardDetails);
+router.post('/createCheckoutSession', userController.createCheckoutSession);
+router.post('/findRole', userController.findRole);
+router.post('/getcustomershipmentdata', userController.getcustomershipmentdata);
 router.post('/getuserdata', userController.getuserdata);
 router.post('/setuserdata', userController.setuserdata);
-
 router.get('/getagents', userController.getagents);
-
 router.post('/createshipment', userController.createshipment);
-
+router.put('/updateCustomerShipment', userController.updateCustomerShipment);
 
 router.post('/myshipments', userController.myshipments);
 

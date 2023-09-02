@@ -17,6 +17,10 @@ router.post('/customers', adminController.customers);
 
 router.post('/agents', adminController.agents);
 
+router.put('/setNewStatus', adminController.setNewStatus);
+
+// Create user by admin
+router.post('/create-user', adminController.createUser);
 
 
 router.post('/aa', adminController.aa);
