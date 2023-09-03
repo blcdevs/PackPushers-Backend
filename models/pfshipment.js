@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
   userid: String,
-  charges: String,
+  charges: Number,
   city: String,
   country: String,
   description: String,
@@ -21,6 +21,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: 'pending'
   },
+  paymentStatus: String,
 });
 
 const Pfshipment = mongoose.model('pfshipment', userSchema);

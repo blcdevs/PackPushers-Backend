@@ -23,18 +23,14 @@ router.post('/setuserdata', userController.setuserdata);
 router.get('/getagents', userController.getagents);
 router.post('/createshipment', userController.createshipment);
 router.put('/updateCustomerShipment', userController.updateCustomerShipment);
-
-router.post('/myshipments', userController.myshipments);
-
-router.post('/deletshipment', userController.deletshipment);
-
 router.post('/dashboard', userController.dashboard);
-
-
-
-
-
-
-// Rest of the routes remain the same
+router.post('/forgetPassword', userController.forgetPassword);
+router.post('/pendingShipements', userController.pendingShipements);
+router.post('/payAmount', userController.payAmount);
+router.post('/changePaymentStatus', userController.changePaymentStatus);
+router.post('/myshipments', userController.myshipments);
+router.post('/deletshipment', userController.deletshipment);
+router.post('/dashboard', userController.dashboard);
+router.post('/trackShipment', userController.trackShipment);
 
 module.exports = router;

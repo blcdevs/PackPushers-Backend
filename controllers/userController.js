@@ -13,9 +13,160 @@ const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 // const { STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY } = process.env;
 // const stripe = require('stripe')(STRIPE_SECRET_KEY);
 const { BASE_URL, EMAIL_USERNAME, JWT_SECRET_KEY } = process.env;
+const nodemailer = require('nodemailer');
 
 
 const userController = {};
+
+userController.trackShipment = async (req, res) => {
+  const data = await Pfshipment.findOne({ trackingId: req.body.trackingId });
+  console.log("data in tracking: " + data);
+  res.json({ message: 'Success', shipment: data });
+};
+
+
+userController.changePaymentStatus = async (req, res) => {
+  console.log("Enter in Change");
+  const { token, id } = req.body;
+  await Pfshipment.findByIdAndUpdate(id, { paymentStatus: "paid" });
+  res.json({ message: 'Success' });
+};
+
+userController.payAmount = async (req, res) => {
+  let amount = req.body.price;
+  // console.log("Amount: ", amount);
+  const session = await stripe.checkout.sessions.create({
+    line_items: [
+      {
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Pending Shipment Payment',
+          },
+          unit_amount: amount * 100,
+        },
+        quantity: 1,
+      },
+    ],
+    mode: 'payment',
+    success_url: 'http://localhost:3000/users/customer/shipment',
+    cancel_url: 'http://localhost:3000/users/customer/pendingShipment',
+  });
+  // console.log("Session ", session.url);
+  // console.log("End of Api");
+  res.json({ sessionUrl: session.url }); // Return session URL
+};
+
+userController.pendingShipements = async (req, res) => {
+  // console.log("Enter 1");
+  const { token } = req.body;
+  const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+
+  const userId = decodedToken.userId;
+  var data = await Pfshipment.find({ userid: userId, paymentStatus: 'unpaid' });
+
+  // let resdata = data;
+
+  let resdata = data;
+  // console.log("resdata in pendingShipements: " + resdata);
+
+  for (let i = 0; i < resdata.length; i++) {
+    let tempdata = await Pfrate.findById(resdata[i].packageWeight);
+    if (tempdata) {
+      resdata[i].packageWeight = tempdata.weight + ' Kg';
+    }
+    tempdata = null;
+    tempdata = await User.findById(resdata[i].shipmentMode);
+    if (tempdata) {
+      resdata[i].shipmentMode = tempdata.fullName;
+    }
+  }
+
+  // console.log("resdata in pendingShipements: " + resdata);
+  res.json({ message: 'Success', data: resdata });
+};
+
+userController.forgetPassword = async (req, res) => {
+  try {
+    console.log("Enter 1");
+    const transporter = nodemailer.createTransport({
+      host: 'cryptokash.finance',
+      port: 465,
+      auth: {
+        user: 'courier@cryptokash.finance',
+        pass: '123456789@2023!',
+      },
+    });
+
+    transporter.verify().then(console.log).catch(console.error);
+
+    transporter.sendMail({
+      from: 'courier@cryptokash.finance', // sender address
+      to: "amirrafay135@gmail.com", // list of receivers
+      subject: "Test for web mail", // Subject line
+      text: "There is a new article. It's about sending emails, check it out!", // plain text body
+      html: "<b>There is a new article. It's about sending emails, check it out!</b>", // html body
+    }).then(info => {
+      console.log({ info });
+    }).catch(console.error);
+    console.log("Enter 2");
+  } catch (err) {
+    console.log("catch");
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
+userController.dashboard = async (req, res) => {
+  try {
+    const { token } = req.body;
+    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+    const userId = decodedToken.userId;
+
+    // for calculate recent orders //
+    const recentOrders = await Pfshipment.countDocuments({ userid: userId });
+
+    // for calculate pending shipments //
+    const pendingShipments = await Pfshipment.countDocuments({ userid: userId, status: "pending" });
+
+    // for calculate pending shipments amount //
+    const pendingShipmentsAmount = await Pfshipment.find({ userid: userId, status: "pending" });
+    let totalPendingAmount = 0;
+
+    pendingShipmentsAmount.forEach(shipment => {
+      totalPendingAmount = totalPendingAmount + shipment.charges;
+    });
+
+    // for calculate shipped shipments amount //
+    const shippedShipmentsAmount = await Pfshipment.find({ userid: userId, status: "shipped" });
+    let totalShippedAmount = 0;
+
+    shippedShipmentsAmount.forEach(shipment => {
+      totalShippedAmount = totalShippedAmount + shipment.charges;
+    });
+
+    // for fetch data whose shipping are pending
+    const pendingDeliveries = await Pfshipment.find({ userid: userId, status: "pending" });
+
+    const invoices = pendingDeliveries.map(shipment => {
+      return shipment.charges;
+    });
+
+    // console.log("Pending deliveries total amount:", invoices);
+
+    // const email = decodedToken.email;
+    // const userdata = await User.findOne({ email });
+    // console.log("recentOrders: " + recentOrders);
+    // console.log("pendingShipments: " + pendingShipments);
+    // console.log("Total pending shipments amount:", totalPendingAmount);
+    // console.log("Total shipped shipments amount:", totalShippedAmount);
+
+    res.json({ recentOrders, pendingShipments, totalPendingAmount, totalShippedAmount, invoices });
+  } catch (err) {
+    console.log("catch");
+    res.status(500).json({ error: 'Server error' });
+  }
+};
+
 
 // userController.cardDetails = async (req, res) => {
 //   try {
@@ -425,7 +576,7 @@ userController.getcustomershipmentdata = async (req, res) => {
 userController.createCheckoutSession = async (req, res) => {
   let numberOfPakages = req.body.packageCount;
   let price = req.body.price;
-  let amount = numberOfPakages * price;
+  let amount = price;
   // console.log("numberOfPakages: ", numberOfPakages);
   // console.log("price: ", price);
   console.log("Amount: ", amount);
@@ -443,8 +594,8 @@ userController.createCheckoutSession = async (req, res) => {
       },
     ],
     mode: 'payment',
-    success_url: '/users/customer/shipment',
-    cancel_url: '/users/customer/create-shipment',
+    success_url: 'http://localhost:3000/users/customer/shipment',
+    cancel_url: 'http://localhost:3000/users/customer/create-shipment',
   });
   console.log("Session ", session.url);
   console.log("End of Api");
@@ -453,7 +604,7 @@ userController.createCheckoutSession = async (req, res) => {
 
 userController.createshipment = async (req, res) => {
 
-  const { token, charges, city, country, description, email, packageCount, packageType, packageWeight, phone, postalCode, reciever, shipmentMode, state, street, trackingId } = req.body;
+  const { token, paymentStatus, charges, city, country, description, email, packageCount, packageType, packageWeight, phone, postalCode, reciever, shipmentMode, state, street, trackingId } = req.body;
 
   const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
 
@@ -523,7 +674,8 @@ userController.createshipment = async (req, res) => {
     shipmentMode,
     state,
     street,
-    trackingId
+    trackingId,
+    paymentStatus
   });
 
   await pfshipment.save();
@@ -583,8 +735,7 @@ userController.myshipments = async (req, res) => {
     }
   }
 
-
-
+  // console.log("resdata:" + resdata);
   res.json({ message: 'Success', data: resdata });
 };
 
@@ -599,38 +750,6 @@ userController.deletshipment = async (req, res) => {
 
   res.json({ message: 'Success', pfset });
 };
-
-
-userController.dashboard = async (req, res) => {
-  try {
-
-    const { token } = req.body;
-    const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
-
-    const userId = decodedToken.userId;
-    var data = await Pfshipment.find({ userid: userId });
-
-    let resdata = { ts: 0, tsc: 0, rs: [] };
-
-    for (var i = 0; i < data.length; i++) {
-      resdata.ts = resdata.ts + 1;
-      resdata.tsc = resdata.tsc + parseFloat(data[i].charges);
-      if (resdata.rs.length < 6) {
-        resdata.rs.push(data[i]);
-      }
-    }
-
-
-
-    res.json({ message: 'Success', data: resdata });
-
-  } catch (err) {
-    res.json({ message: 'Error', data: {} });
-  }
-};
-
-
-
 
 // Rest of the userController functions remain the same
 

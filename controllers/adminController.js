@@ -21,6 +21,79 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
+adminController.getAllUsers = async (req, res) => {
+  const emailList = await User.find({}, { email: 1, _id: 0 }).lean();
+  const emails = emailList.map(user => user.email);
+  // console.log("Users in node: " + emails);
+  res.json({ message: 'Success', users: emails });
+};
+
+
+adminController.createshipment = async (req, res) => {
+
+  const { token, paymentStatus, charges, city, country, description, email, packageCount, userEmail, packageType, packageWeight, phone, postalCode, reciever, shipmentMode, state, street, trackingId } = req.body;
+
+  const decodedToken = jwt.verify(token, JWT_SECRET_KEY);
+  const userdata = await User.findOne({ email: userEmail });
+
+  const pfshipment = new Pfshipment({
+    userid: userdata._id,
+    charges,
+    city,
+    country,
+    description,
+    email,
+    packageCount,
+    packageType,
+    packageWeight,
+    phone,
+    postalCode,
+    reciever,
+    shipmentMode,
+    state,
+    street,
+    trackingId,
+    paymentStatus
+  });
+
+  await pfshipment.save();
+  res.json({ message: 'Success', pfshipment });
+
+};
+
+adminController.createUser = async (req, res) => {
+  try {
+    // console.log("Enter in Api 1");
+    const { fullName, email, password, role } = req.body;
+    const existingUser = await User.find({ email: email });
+    console.log("Enter in Api 2", req.body);
+
+    if (existingUser.email) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+    console.log("Enter in Api 3");
+
+    const verificationToken = uuid.v4(); // Generate a random email verification token
+    console.log("Enter in Api 4");
+
+    const user = new User({
+      fullName,
+      email,
+      password: password,
+      verificationToken: verificationToken,
+      role: role
+    });
+    console.log("Data in Api: ", user);
+    await user.save();
+
+
+
+    res.json({ message: 'User registered successfully. Please check your email for verification.' });
+  } catch (err) {
+    console.log("Enter in catch 1");
+    res.status(500).json({ error: 'Server error' });
+  }
+};
 
 
 adminController.dashboard = async (req, res) => {
@@ -156,38 +229,6 @@ adminController.ab = async (req, res) => {
 
 
   res.json({ message: 'Success', data: data });
-};
-
-
-// ADMIN CAN CREATE USERS
-adminController.createUser = async (req, res) => {
-  try {
-    const { fullName, email, password, role } = req.body;
-
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      return res.status(400).json({ error: 'User with this email already exists' });
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const verificationToken = uuid.v4();
-    const user = new User({
-      fullName,
-      email,
-      password: hashedPassword,
-      verificationToken,
-      role: role,
-    });
-    await user.save();
-
-    // ... (email sending code)
-
-    res.json({ message: 'User registered successfully.' });
-  } catch (err) {
-    console.error(err); // Log the error for debugging
-    res.status(500).json({ error: 'Server error' });
-  }
 };
 
 adminController.setNewStatus = async (req, res) => {
