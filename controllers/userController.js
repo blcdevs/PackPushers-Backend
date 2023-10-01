@@ -10,6 +10,8 @@ require("dotenv").config();
 const Stripe = require("stripe");
 const shortid = require("shortid");
 
+const { ObjectId } = require('mongoose').Types;
+
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 // const cors = require('cors');
 // const { STRIPE_PUBLISHABLE_KEY, STRIPE_SECRET_KEY } = process.env;
@@ -809,9 +811,10 @@ userController.deletshipment = async (req, res) => {
 
 
 // Get affiliate data for a specific user
+
 userController.getAffiliateData = async (req, res) => {
   try {
-    const userId = req.params.userId; // Assuming you pass the user's ID in the URL
+    const userId = new ObjectId(req.params.userId); // Convert the string parameter to an ObjectId
 
     // Find the user in your database
     const user = await User.findById(userId);
@@ -857,7 +860,7 @@ userController.requestWithdrawal = async (req, res) => {
     }
 
     // Calculate the withdrawal amount (6% commission on each shipment)
-    const commissionRate = 0.06;
+    const commissionRate = 0.06; //6% of each packake bought
     const withdrawalAmount = user.totalEarnings; // Assuming totalEarnings is in the user's currency
     user.totalEarnings = 0; // Reset totalEarnings after withdrawal
     await user.save();

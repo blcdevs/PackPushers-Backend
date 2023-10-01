@@ -37,11 +37,13 @@ router.post('/trackShipment', userController.trackShipment);
 
 // AFFILIATE
 
+router.get('/affiliate', userController.getAffiliateData);
+
 // Add logs to check if the route is being accessed
-router.get('/affiliate', (req, res) => {
-    console.log("Received GET request at /affiliate");
-    userController.getAffiliateData(req, res);
-  });
+// router.get('/affiliate/:userId', (req, res) => {
+//     console.log("Received GET request at /affiliate");
+//     userController.getAffiliateData(req, res);
+//   });
   
 
 

@@ -39,8 +39,6 @@ app.use('/api/agent', pfRoutes);
 
 app.use('/api/admin', adminRoutes);
 
-app.use('/api/users', userRoutes);
-
 
 const port = process.env.PORT || 9000;
 app.listen(port, () => {

@@ -18,12 +18,6 @@ const userSchema = new mongoose.Schema({
     country: String,
   },
 
-  // referrer: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
-  // referralCode: String,
-  // referralEarnings: { type: Number, default: 0 },
-  // hauls: { type: Number, default: 0 },
-
-
   referrerLink: { type: String, unique: true }, // Referrer's unique link
   totalUsersReferred: { type: Number, default: 0 },
   totalShipments: { type: Number, default: 0 },
